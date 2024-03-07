@@ -117,21 +117,23 @@ class MyModel(torch.nn.Module):
         x = F.dropout(x, 0.5)
         return F.softmax(x, dim=-1)
 
-target_dict = {}
 
-def capture_activation(name, tensor, target_dict, laye_name):
-    if name == laye_name:
-        target_dict[name] = tensor
 
-def capture_targets(name, tensor, target_dict):
-    capture_shape(name, tensor, target_dict)
-    capture_activation(name, tensor, target_dict, 'mt.matmul.0')
+if __name__ == "__main__":
+    target_dict = {}
+    def capture_activation(name, tensor, target_dict, laye_name):
+        if name == laye_name:
+            target_dict[name] = tensor
 
-model = MyModel()
-x = torch.randn(10, 10)
+    def capture_targets(name, tensor, target_dict):
+        capture_shape(name, tensor, target_dict)
+        capture_activation(name, tensor, target_dict, 'mt.matmul.0')
+    
+    model = MyModel()
+    x = torch.randn(10, 10)
 
-with visualize(model, target_dict, capture_targets):
-  model(x)
+    with visualize(model, target_dict, capture_targets):
+      model(x)
 
-model(x)
-print(target_dict)
+    model(x)
+    print(target_dict)
