@@ -2,7 +2,6 @@ import torch
 from torch.functional import F
 from visualizer import visualize
 
-separate 
 def capture_shape(name, tensor, target_dict):
     if isinstance(tensor, torch.Tensor):
         target_dict[f'{name}.shape'] = tensor.shape
