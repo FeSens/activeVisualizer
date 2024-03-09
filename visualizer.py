@@ -24,7 +24,8 @@ def patch_pytorch_internal_function(functions_dict, target_dict, func_to_patch, 
     return patched_func
 
 @contextmanager
-def capture_pytorch_internal_functions(target_dict, name, patch_info, functions_dict, capture_function):
+def capture_pytorch_internal_functions(target_dict, name, patch_info, capture_function):
+    functions_dict = {}
     original_funcs = {torch: {}, F: {}}
     try:
         for func_name in patch_info:
@@ -44,10 +45,7 @@ def capture_pytorch_internal_functions(target_dict, name, patch_info, functions_
                 setattr(module, func_name, original_func)
 
 
-target_dict = {}
-patch_info = {'matmul': 'layer.0.attention.matmul', 'softmax': 'layer.0.attention.softmax', 'dropout': 'layer.0.attention.dropout'}
 capture_internal_functions = ['matmul', 'softmax', 'dropout']
-
 
 @contextmanager
 def visualize(model, target_dict, capture_function):
@@ -55,7 +53,6 @@ def visualize(model, target_dict, capture_function):
     try:
         for name, module in model.named_modules():
             # Skip wrapping the root module to avoid double-counting
-            function_dict = {}
             if module == model:
                 # name = 'model'
                 continue
@@ -67,7 +64,7 @@ def visualize(model, target_dict, capture_function):
                 if name not in target_dict:
                     target_dict[name] = 0
                 target_dict[name] += 1
-                with capture_pytorch_internal_functions(target_dict, name, capture_internal_functions, function_dict, capture_function):
+                with capture_pytorch_internal_functions(target_dict, name, capture_internal_functions, capture_function):
                   out = original_forward(*args, **kwargs)
                 capture_function(name, out, target_dict)
                 return out
