@@ -4,7 +4,7 @@ import functools
 from contextlib import contextmanager
 
 # Function to patch another function
-def patch_pytorch_internal_function(functions_dict, target_dict, func_to_patch, patch_name, module, capture_function):
+def patch_pytorch_internal_function(functions_dict, func_to_patch, patch_name, module, capture_function):
     original_func = getattr(module, func_to_patch)
     # Initialize a counter for each operation type
     if func_to_patch not in functions_dict:
@@ -16,7 +16,7 @@ def patch_pytorch_internal_function(functions_dict, target_dict, func_to_patch, 
         result = original_func(*args, **kwargs)
         # Generate a unique key for this operation invocation
         key = f"{patch_name}.{func_to_patch}.{op_counter}"
-        capture_function(key, result, target_dict)
+        capture_function(key, result)
         # Increment the counter after the operation is tracked
         functions_dict[func_to_patch]['count'] += 1
         return result
@@ -24,7 +24,7 @@ def patch_pytorch_internal_function(functions_dict, target_dict, func_to_patch, 
     return patched_func
 
 @contextmanager
-def capture_pytorch_internal_functions(target_dict, name, patch_info, capture_function):
+def capture_pytorch_internal_functions(name, patch_info, capture_function):
     functions_dict = {}
     original_funcs = {torch: {}, F: {}}
     try:
@@ -33,7 +33,7 @@ def capture_pytorch_internal_functions(target_dict, name, patch_info, capture_fu
               original_func = getattr(module, func_name, None)
               if original_func is None:
                   continue
-              patched_func = patch_pytorch_internal_function(functions_dict, target_dict, func_name, name, module, capture_function=capture_function)
+              patched_func = patch_pytorch_internal_function(functions_dict, func_name, name, module, capture_function=capture_function)
               original_funcs[module][func_name] = original_func
               setattr(module, func_name, patched_func)
               
@@ -48,7 +48,7 @@ def capture_pytorch_internal_functions(target_dict, name, patch_info, capture_fu
 capture_internal_functions = ['matmul', 'softmax', 'dropout']
 
 @contextmanager
-def visualize(model, target_dict, capture_function):
+def visualize(model, capture_function):
     original_funcs = {}
     try:
         for name, module in model.named_modules():
@@ -61,12 +61,9 @@ def visualize(model, target_dict, capture_function):
             
             @functools.wraps(original_forward)
             def wrap_forward(*args, name=name, original_forward=original_forward, **kwargs):
-                if name not in target_dict:
-                    target_dict[name] = 0
-                target_dict[name] += 1
-                with capture_pytorch_internal_functions(target_dict, name, capture_internal_functions, capture_function):
+                with capture_pytorch_internal_functions(name, capture_internal_functions, capture_function):
                   out = original_forward(*args, **kwargs)
-                capture_function(name, out, target_dict)
+                capture_function(name, out)
                 return out
             
             # Assign the wrapped function to the module's forward
