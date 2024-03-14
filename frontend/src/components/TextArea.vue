@@ -4,9 +4,8 @@
     <div
       contenteditable="true"
       class="editable-text-area w-full h-32 px-3 py-2 text-base border rounded-lg focus:ring focus:ring-indigo-300"
-      @input="formatText($event.target.innerText)"
+      @input="handleInput"
       v-html="styledText"
-      @keyup="moveCursorToEnd($event)"
     ></div>
   </div>
 </template>
@@ -22,25 +21,63 @@ export default {
     const { isOpen, data, send } = tokenizeText;
     const styledText = ref(""); // Use a ref to hold the styled HTML content
     const userText = ref(""); // Use a ref to hold the user's input
+    const lastKnownCursorPos = ref(0);
 
-    function formatText(rawText) {
+    const updateCursorPos = (activeElement) => {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        let selectedNode = range.startContainer;
+        let offset = range.startOffset;
+
+        // Traverse up to a direct child of the contenteditable element
+        while (selectedNode && selectedNode.parentNode !== activeElement) {
+          const parent = selectedNode.parentNode;
+          for (let i = 0; i < parent.childNodes.length; i++) {
+            if (parent.childNodes[i] === selectedNode) {
+              break;
+            }
+            offset += parent.childNodes[i].textContent.length;
+          }
+          selectedNode = parent; // Move up in the DOM tree
+        }
+
+        // Now selectedNode should be a direct child of the contenteditable element
+        // Calculate the cursor's position within the entire contenteditable
+        let charCount = 0;
+        for (const node of Array.from(activeElement.childNodes)) {
+          if (node === selectedNode) {
+            charCount += offset;
+            break;
+          } else {
+            charCount += node.textContent.length;
+          }
+        }
+
+        lastKnownCursorPos.value = charCount;
+      }
+    };
+
+    const handleInput = (event) => {
+      const activeElement = event.target;
+      updateCursorPos(activeElement); // Update cursor position before re-render
+      const rawText = event.target.innerText;
       userText.value = rawText; // Update the user's text
       if (isOpen) {
         send(rawText);
       } else {
         console.log('Socket is not open');
       }
-    }
+    };
+
+    // watch(() => lastKnownCursorPos.value, (newValue) => {
+    //   console.log('Cursor position changed:', newValue);
+    // });
 
     watch(() => JSON.parse(data.value), (newValue) => {
-      console.log(newValue);
       if (newValue && newValue.tokens && newValue.offsets) {
-        // Generate the styled HTML without disrupting the cursor position
-        const selection = window.getSelection();
-        let cursorPos = selection.anchorOffset;
-        const activeElement = document.activeElement;
-
-        // Insert tokens into the user's text
+        // ... your token processing logic here
+        // Generate the styled text and update styledText.value
         let newText = userText.value;
         newValue.offsets.slice().reverse().forEach((offset, index) => {
           const token = newValue.tokens[index];
@@ -51,65 +88,50 @@ export default {
 
         styledText.value = newText;
 
-        // Restore the cursor position
         nextTick(() => {
-          if (document.activeElement === activeElement) {
-            const children = Array.from(activeElement.childNodes);
-            let charCount = 0;
-            let found = false;
-
-            for (const child of children) {
-              if (child.nodeType === Node.TEXT_NODE) {
-                if (charCount + child.length >= cursorPos) {
-                  // Place the cursor within this text node
-                  const range = document.createRange();
-                  const offsetWithinNode = cursorPos - charCount;
-                  range.setStart(child, offsetWithinNode);
-                  range.collapse(true);
-                  selection.removeAllRanges();
-                  selection.addRange(range);
-                  found = true;
-                  break;
-                }
-                charCount += child.length;
-              } else if (child.nodeType === Node.ELEMENT_NODE) {
-                // Count the characters of element's textContent
-                charCount += child.textContent.length;
-              }
-            }
-
-            if (!found) {
-              // If we didn't find a text node (cursor at the end)
-              const range = document.createRange();
-              range.selectNodeContents(activeElement);
-              range.collapse(false); // Collapse to end
-              selection.removeAllRanges();
-              selection.addRange(range);
-            }
+          const activeElement = document.activeElement; // Now we define activeElement
+          if (activeElement && activeElement.className.includes("editable-text-area")) {
+            // Restore cursor position based on lastKnownCursorPos
+            restoreCursorPosition(activeElement, lastKnownCursorPos.value);
           }
         });
       }
     });
 
-    function moveCursorToEnd(event) {
-      if (event.key === "Enter") {
-        // Ensure the cursor moves to the end on Enter key
-        const editableDiv = event.target;
-        nextTick(() => {
+
+    const restoreCursorPosition = (activeElement, cursorPos) => {
+      // Restore the cursor position
+      const children = Array.from(activeElement.childNodes);
+      let charCount = 0;
+      let found = false;
+      for (const child of children) {
+        let nodeLength = child.nodeType === Node.TEXT_NODE ? child.length : child.textContent.length;
+        if (charCount + nodeLength > cursorPos) {
           const range = document.createRange();
-          const sel = window.getSelection();
-          range.selectNodeContents(editableDiv);
-          range.collapse(false);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        });
+          range.setStart(child.nodeType === Node.TEXT_NODE ? child : child.firstChild, cursorPos - charCount);
+          range.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          found = true;
+          break;
+        }
+        charCount += nodeLength;
       }
-    }
+      if (!found) {
+        // Fallback if the cursor position is at the end
+        const range = document.createRange();
+        range.selectNodeContents(activeElement);
+        range.collapse(false); // Collapse to end
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    };
 
     return {
       styledText,
-      formatText,
-      moveCursorToEnd
+      handleInput,
     }
   },
 }
@@ -124,8 +146,8 @@ export default {
 .token {
   /* Your token styling goes here */
   display: inline-block;
-  margin-right: 5px;
-  padding: 2px 5px;
+  margin-right: 2px;
+  padding: 2px 2px;
   border-radius: 4px;
   background-color: #eee; /* Example background */
 }
