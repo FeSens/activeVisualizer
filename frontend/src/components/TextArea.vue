@@ -53,13 +53,39 @@ export default {
 
         // Restore the cursor position
         nextTick(() => {
-          if (activeElement.className === "editable-text-area") {
-            const range = document.createRange();
-            const textNode = activeElement.childNodes[0];
-            range.setStart(textNode, cursorPos);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
+          if (document.activeElement === activeElement) {
+            const children = Array.from(activeElement.childNodes);
+            let charCount = 0;
+            let found = false;
+
+            for (const child of children) {
+              if (child.nodeType === Node.TEXT_NODE) {
+                if (charCount + child.length >= cursorPos) {
+                  // Place the cursor within this text node
+                  const range = document.createRange();
+                  const offsetWithinNode = cursorPos - charCount;
+                  range.setStart(child, offsetWithinNode);
+                  range.collapse(true);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                  found = true;
+                  break;
+                }
+                charCount += child.length;
+              } else if (child.nodeType === Node.ELEMENT_NODE) {
+                // Count the characters of element's textContent
+                charCount += child.textContent.length;
+              }
+            }
+
+            if (!found) {
+              // If we didn't find a text node (cursor at the end)
+              const range = document.createRange();
+              range.selectNodeContents(activeElement);
+              range.collapse(false); // Collapse to end
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
           }
         });
       }
