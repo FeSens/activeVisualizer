@@ -2,7 +2,7 @@
   <div class="flex flex-col items-center justify-between">
     <div class="flex justify-between flex-row w-full mt-2">
       <label for="temperature-slider" class="text-gray-800 items-start">{{ name }}</label>
-      <input type="text" v-model.number="value" @blur="formatValue"
+      <input type="text" v-model.number="value" @blur="formatValue" :step="step"
         class="w-14 border border-gray-300 rounded text-center text-sm focus:border-gray-800 focus:ring-gray-800" />
     </div>
 
