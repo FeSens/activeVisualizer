@@ -1,5 +1,5 @@
 <template>
-  <div class="text-area-container">
+  <div class="text-area-container w-full">
     <!-- Content-editable div for text input and styled display -->
     <div
       contenteditable="true"
@@ -70,14 +70,8 @@ export default {
       }
     };
 
-    // watch(() => lastKnownCursorPos.value, (newValue) => {
-    //   console.log('Cursor position changed:', newValue);
-    // });
-
     watch(() => JSON.parse(data.value), (newValue) => {
       if (newValue && newValue.tokens && newValue.offsets) {
-        // ... your token processing logic here
-        // Generate the styled text and update styledText.value
         let newText = userText.value;
         newValue.offsets.slice().reverse().forEach((offset, index) => {
           const token = newValue.tokens[index];
