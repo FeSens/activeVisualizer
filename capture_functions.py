@@ -1,7 +1,7 @@
 import torch
 from einops import rearrange
 
-def capture_layers_builder(layers_name: list, target_dict, capture_shape=True, capture_activation=True, capture_distribution=True):
+def capture_layers_builder(layers_name: list, target_dict, capture_shape=True, capture_activation=True, capture_distribution=True, search_activation=False):
     def capture_layers(name, tensor):
         if capture_shape:
             _capture_shape(name, tensor, target_dict, layers_name)
@@ -9,7 +9,36 @@ def capture_layers_builder(layers_name: list, target_dict, capture_shape=True, c
             _capture_activation(name, tensor, target_dict, layers_name)
         if capture_distribution:
             _capture_distribution(name, tensor, target_dict, layers_name)
+        if False:
+            _search_activation(name, tensor, target_dict)
     return capture_layers
+
+def _search_activation(name, tensor, target_dict, top_k=5):
+	layer_type = 'self_attn.softmax'
+	if not 'self_attn.softmax' in name:
+		return
+	
+	target_tensor = torch.tensor([0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]).to(tensor.device)
+	target_tensor = target_tensor/torch.sum(target_tensor)
+	#  Calculate the MSE between the target tensor (B, H, T, T) and the current tensor (T,)
+	B, H, T, T = tensor.shape
+	t = tensor[:, :, T-1, :] # 0.07149197906255722 0.0714682936668396
+	l1 = torch.sum(((t - target_tensor))**2, dim=2)
+	l2 = 0 #torch.mean((t - target_tensor)*(1-target_tensor)**2, dim=2)
+	top_k_values, top_k_indices = torch.topk((l1 + l2), dim=1, k=top_k, largest=False)
+	# get the top k values
+	# merge with target_dict but only keep the top k values globally on layer_type
+	for i in range(top_k):
+		current_key = f"{layer_type}.top_{i}"
+		mse, indices = top_k_values[:, i], top_k_indices[:, i]
+		for b in range(B):  # loop through batch to update global top-k
+			# Update logic to compare and keep global top-k; simplified for clarity
+			global_mse_key = f"{current_key}.mse"
+			if global_mse_key not in target_dict or mse[b] < target_dict[global_mse_key]:
+				target_dict[global_mse_key] = mse[b].item()
+				target_dict[f"{current_key}.index"] = indices[b].cpu().data.numpy().tolist()
+				target_dict[f"{current_key}.name"] = name
+				target_dict[f"{current_key}.activ"] = tensor[:, indices[b], :, :].cpu().data.numpy().tolist()
 
 def _capture_shape(name, tensor, target_dict, layer_name='all'):
     if layer_name == 'all' or name in layer_name:

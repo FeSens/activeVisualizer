@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, Query
+from anyio import create_task_group, Semaphore, sleep
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from generate import generate
 from visualizer import visualize
@@ -30,27 +31,52 @@ async def tokenizer_endpoint(websocket: WebSocket):
 @app.websocket("/ws/model/forward")
 async def model_endpoint(websocket: WebSocket):
 	await websocket.accept()
-	while True:
-		# using stateful connection we can implement a more complex logic, maybe caching the model outputs for a given input or implementing streaming of generated text
-		data = await websocket.receive_json()
-		text = data["text"]
-		layer_name = [data["layer_name"]]
-		top_k = data["top_k"]
-		inputs = tokenizer(text, return_tensors="pt", return_attention_mask=False)
-		captured_targets = {}
+	latest_data_semaphore = Semaphore(0, max_value=1)
+	latest_data = {}
 
-		with visualize(model, capture_layers_builder(layer_name, captured_targets)):
-			with torch.no_grad():
-				logits = model(**inputs, return_dict=False)[0].topk(top_k, dim=-1)
-		
-		logits_values = logits.values.squeeze(dim=0).cpu().data.numpy().tolist() # squeeze to remove the batch dimension
-		logits_indices = logits.indices.squeeze(dim=0).cpu().data.numpy().tolist() # squeeze to remove the batch dimension
-		outputs = {
-			"logits_values": logits_values,
-			"logits_indices": logits_indices,
-			"captured_targets": captured_targets
-		}
-		await websocket.send_json(outputs)
+	async def receiver():
+		nonlocal latest_data
+		while True:
+			data = await websocket.receive_json()
+			print("setting latest data")
+			latest_data = data
+			try:
+				latest_data_semaphore.release()
+			except:
+				pass
+			
+
+	async def processor():
+		nonlocal latest_data
+		while True:
+			# sleep for 0.1 seconds to avoid busy waiting
+			await sleep(0.1)
+			await latest_data_semaphore.acquire()
+			print("Consuming latest data")
+			data = latest_data  # Copy the latest data for processing
+
+			text = data["text"]
+			layer_name = [data["layer_name"]]
+			top_k = data["top_k"]
+			inputs = tokenizer(text, return_tensors="pt", return_attention_mask=False)
+			captured_targets = {}
+
+			with visualize(model, capture_layers_builder(layer_name, captured_targets)):
+				with torch.no_grad():
+					logits = model(**inputs, return_dict=False)[0].topk(top_k, dim=-1)
+
+			logits_values = logits.values.squeeze(dim=0).cpu().data.numpy().tolist()
+			logits_indices = logits.indices.squeeze(dim=0).cpu().data.numpy().tolist()
+			outputs = {
+				"logits_values": logits_values,
+				"logits_indices": logits_indices,
+				"captured_targets": captured_targets
+			}
+			await websocket.send_json(outputs)
+
+	async with create_task_group() as tg:
+		tg.start_soon(receiver)
+		tg.start_soon(processor)
 
 @app.websocket("/ws/model/generate")
 async def model_endpoint(websocket: WebSocket):
@@ -83,9 +109,9 @@ async def model_capturable_layers():
 	return { "model_layers": layers }
 
 def tokenize(text):
-    tokens, offsets = tokenizer(text, return_attention_mask=False, return_offsets_mapping=True).values()
-    return {
-        "tokens": tokens,
-        "offsets": offsets,
-        "n_tokens": len(tokens),
-    }
+	tokens, offsets = tokenizer(text, return_attention_mask=False, return_offsets_mapping=True).values()
+	return {
+		"tokens": tokens,
+		"offsets": offsets,
+		"n_tokens": len(tokens),
+	}
