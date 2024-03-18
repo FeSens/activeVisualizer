@@ -22,6 +22,9 @@ async def tokenizer_endpoint(websocket: WebSocket):
 		# using stateful connection we can implement a more complex logic, avoiding the need to send the whole text in every message if necessary
 		data = await websocket.receive_text()
 		tokenized_text = tokenize(data)
+		
+		text = [data[x:y] for (x, y) in tokenized_text["offsets"]]
+		tokenized_text["text"] = text
 		await websocket.send_json(tokenized_text)
 
 @app.websocket("/ws/model/forward")
@@ -31,14 +34,14 @@ async def model_endpoint(websocket: WebSocket):
 		# using stateful connection we can implement a more complex logic, maybe caching the model outputs for a given input or implementing streaming of generated text
 		data = await websocket.receive_json()
 		text = data["text"]
-		layer_name = data["layer_name"]
+		layer_name = [data["layer_name"]]
 		top_k = data["top_k"]
 		inputs = tokenizer(text, return_tensors="pt", return_attention_mask=False)
 		captured_targets = {}
 
 		with visualize(model, capture_layers_builder(layer_name, captured_targets)):
 			with torch.no_grad():
-				logits = model(**inputs)['logits'].topk(top_k, dim=-1)
+				logits = model(**inputs, return_dict=False)[0].topk(top_k, dim=-1)
 		
 		logits_values = logits.values.squeeze(dim=0).cpu().data.numpy().tolist() # squeeze to remove the batch dimension
 		logits_indices = logits.indices.squeeze(dim=0).cpu().data.numpy().tolist() # squeeze to remove the batch dimension

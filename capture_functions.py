@@ -22,10 +22,16 @@ def _capture_shape(name, tensor, target_dict, layer_name='all'):
 
 def _capture_activation(name, tensor, target_dict, layer_name=[]):
     # Only capture if this if its shape is (B, H, T, T)
-    if len(tensor.shape) == 3:
-        return
+    
+    # if len(tensor.shape) == 3:
+    #     return
     if layer_name == 'all' or name in layer_name:
+        #  normalize the tensor to be between 0 and 1 in the H dimension
+        min = tensor.min(dim=2, keepdim=True)[0]
+        max = tensor.max(dim=2, keepdim=True)[0]
+        norm = (tensor - min) / (max - min + 1e-6)
         target_dict[f"{name}.activ"] = tensor.cpu().data.numpy().tolist()
+        target_dict[f"{name}.activ_norm"] = norm.cpu().data.numpy().tolist()
 
 def _capture_distribution(name, tensor: torch.Tensor, target_dict, layer_name=[]):
     if layer_name == 'all' or name in layer_name:

@@ -7,5 +7,8 @@ export default function useWebSockets() {
     tokenizeText: useWebSocket(
       "ws://localhost:8000/ws/tokenizer",
     ),
+    getActivations: useWebSocket(
+      "ws://localhost:8000/ws/model/forward",
+    ),
   };
 }

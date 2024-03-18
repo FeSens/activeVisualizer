@@ -19,7 +19,7 @@ inputs = tokenizer('''def print_prime(n):
    """''', return_tensors="pt", return_attention_mask=False)
 
 with visualize(model, capture_targets):
-  outputs = model(**inputs)
+  outputs = model(**inputs, return_dict=False)
 
 
 import json
