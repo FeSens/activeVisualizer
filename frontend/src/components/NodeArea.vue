@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col w-full">
-      <TextArea :token-count="tokenCount" @text-changed="handleTextChanged" />
+      <TextArea :token-count="tokenCount" @text-changed="text=$event" />
 
       <div v-for="(head, index) in activation" :key="head" class="flex flex-col flex-wrap mt-2 ml-2 ring-1 p-2">
         <p class="text-sm font-bold text-gray-500">{{ layer }}_{{ index }}</p>
@@ -55,6 +55,7 @@ export default {
     const tokenCount = ref(0);
     const activation = ref([[]]);
     const activeToken = ref(0);
+    const text = ref('');
     // const layer = ref('transformer.h.0.attn.softmax.0');
     return {
       tokenCount,
@@ -65,22 +66,30 @@ export default {
       forward,
       activation,
       activeToken,
+      text
     }
   },
   methods: {
-    handleTextChanged(text) {
-      this.send(text);
-      this.forward(JSON.stringify({
-        layer_name: this.layer,
-        text,
-        top_k: 3,
-      }));
-    },
     handleHovered(data) {
       this.activeToken = data.index;
     }
   },
   watch: {
+    text(newText) {
+      this.send(newText);
+      this.forward(JSON.stringify({
+        layer_name: this.layer,
+        text: newText,
+        top_k: 3,
+      }));
+    },
+    layer(newLayer) {
+      this.forward(JSON.stringify({
+        layer_name: newLayer,
+        text: this.text,
+        top_k: 3,
+      }));
+    },
     data(newData) {
       const parsedData = JSON.parse(newData);
       this.tokenCount = parsedData.tokens.length;

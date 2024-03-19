@@ -1,12 +1,30 @@
-<script setup lang="ts">
-import RightPanel from './components/RightPanel.vue';
-import NodeArea from './components/NodeArea.vue';
-
-</script>
-
 <template>
   <div class="flex flex-row-reverse h-screen">
-    <RightPanel />
-    <NodeArea />
+    <RightPanel @layer-changed="handleLayerChange"/>
+    <NodeArea :layer="layer"/>
   </div>
 </template>
+
+<script>
+import RightPanel from './components/RightPanel.vue';
+import NodeArea from './components/NodeArea.vue';
+import { ref } from 'vue';
+
+export default {
+  components: {
+    RightPanel,
+    NodeArea
+  },
+  setup() {
+    const layer = ref('');
+    return {
+      layer
+    }
+  },
+  methods: {
+    handleLayerChange(layer) {
+      this.layer = layer;
+    }
+  }
+}
+</script>

@@ -1,7 +1,7 @@
 import torch
 from einops import rearrange
 
-def capture_layers_builder(layers_name: list, target_dict, capture_shape=True, capture_activation=True, capture_distribution=True, search_activation=False):
+def capture_layers_builder(layers_name: list, target_dict, capture_shape=True, capture_activation=True, capture_distribution=False, search_activation=False):
     def capture_layers(name, tensor):
         if capture_shape:
             _capture_shape(name, tensor, target_dict, layers_name)
@@ -41,13 +41,13 @@ def _search_activation(name, tensor, target_dict, top_k=5):
 				target_dict[f"{current_key}.activ"] = tensor[:, indices[b], :, :].cpu().data.numpy().tolist()
 
 def _capture_shape(name, tensor, target_dict, layer_name='all'):
-    if layer_name == 'all' or name in layer_name:
+    if True:# layer_name == 'all' or name in layer_name:
         if isinstance(tensor, torch.Tensor):
             target_dict[f'{name}.shape'] = tensor.shape
       # if out is a list of tensors, store the shape of each tensor
-    elif isinstance(tensor, list) and all(isinstance(o, torch.Tensor) for o in tensor):
-        for i, o in enumerate(tensor):
-            target_dict[f'{name}[{i}].shape'] = o.shape
+        elif isinstance(tensor, list) and all(isinstance(o, torch.Tensor) for o in tensor):
+            for i, o in enumerate(tensor):
+                target_dict[f'{name}[{i}].shape'] = o.shape
 
 def _capture_activation(name, tensor, target_dict, layer_name=[]):
     # Only capture if this if its shape is (B, H, T, T)

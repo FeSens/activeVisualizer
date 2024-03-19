@@ -1,6 +1,6 @@
 <template>
   <Combobox as="div" v-model="selectedPerson">
-    <ComboboxLabel class="block text-sm font-medium leading-6 text-gray-900">Assigned to</ComboboxLabel>
+    <ComboboxLabel class="block text-sm font-medium leading-6 text-gray-900">Layer</ComboboxLabel>
     <div class="relative mt-2">
       <ComboboxInput
         class="w-full rounded-md border-0 bg-white py-1.5 pl-3 pr-12 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
@@ -11,7 +11,7 @@
 
       <ComboboxOptions v-if="filteredPeople.length > 0"
         class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-        <ComboboxOption v-for="person in filteredPeople" :key="person.username" :value="person" as="template"
+        <ComboboxOption v-for="person in filteredPeople" :key="person.name" :value="person" as="template"
           v-slot="{ active, selected }">
           <li
             :class="['relative cursor-default select-none py-2 pl-3 pr-9', active ? 'bg-indigo-600 text-white' : 'text-gray-900']">
@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/vue/20/solid'
 import {
   Combobox,
@@ -47,23 +47,28 @@ import {
   ComboboxOptions,
 } from '@headlessui/vue'
 
-const people = [
-  { name: 'Leslie Alexander', username: '@lesliealexander' },
-  { name: 'Felipe Bonetto', username: '@dasds' },
-  { name: 'Leslie ASDSDA', username: '@sagas' },
-  { name: 'fsafas Alexander', username: '@dasdas' },
-  { name: 'Leslie ASFSaf', username: '@dsada' },
-  { name: 'gdsa Alexander', username: '@assaga' },
-  // More users...
-]
+// replace with a prop
+const props = defineProps({
+  people: {
+    type: Array,
+    required: true,
+  },
+})
+
+const emit = defineEmits(['selected-person-changed'])
 
 const query = ref('')
-const selectedPerson = ref(people[0])
+const selectedPerson = ref()
 const filteredPeople = computed(() =>
   query.value === ''
-    ? people
-    : people.filter((person) => {
+    ? props.people
+    : props.people.filter((person) => {
       return person.name.toLowerCase().includes(query.value.toLowerCase())
     })
 )
+
+watch(selectedPerson, (person) => {
+  // Emit an event when selectedPerson changes
+  emit('selected-person-changed', person.name);
+});
 </script>

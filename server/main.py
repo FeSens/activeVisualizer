@@ -7,6 +7,8 @@ import torch
 from capture_functions import capture_layers_builder
 from pydantic import BaseModel
 from typing import List, Annotated
+from fastapi.middleware.cors import CORSMiddleware
+
 
 torch.set_default_device("mps")
 model_name = "openai-community/gpt2"
@@ -14,6 +16,15 @@ tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", trust_remote_code=True)
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+)
 
 
 @app.websocket("/ws/tokenizer")
@@ -94,12 +105,12 @@ async def model_endpoint(websocket: WebSocket):
 # class Decode(BaseModel):
 #     ids: List[int]
 
-@app.get("/decode")
+@app.get("/v1/decode")
 async def decode(tokens: Annotated[List[int], Query()]):
 	decoded = tokenizer.decode(tokens)
 	return { "decoded_text": decoded }
 
-@app.get("/model_capturable_layers")
+@app.get("/v1/model_capturable_layers")
 async def model_capturable_layers():
 	layers = {}
 	with visualize(model, capture_layers_builder('all', layers, capture_shape=True, capture_activation=False)):

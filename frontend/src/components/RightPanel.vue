@@ -1,8 +1,8 @@
 <template>
-  <div class="mt-4 w-64">
+  <div class="mt-4 min-w-96">
     <div class="pg-right-content px-2">
       <CloseButton @close="handleClose" />
-      <ParameterPanel />
+      <ParameterPanel @layer-changed="$emit('layer-changed', $event)"/>
       <!-- You can add more components as needed here -->
     </div>
   </div>
@@ -17,10 +17,15 @@ export default {
     CloseButton,
     ParameterPanel
   },
+  emits: ['layer-changed'],
   methods: {
     handleClose() {
       // Close panel logic here
       console.log('Closing panel');
+    },
+    handleLayerChanged(layer) {
+      // Handle layer change logic here
+      console.log('Layer changed to', layer);
     }
   }
 }
