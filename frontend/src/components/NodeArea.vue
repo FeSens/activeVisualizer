@@ -2,16 +2,19 @@
   <div class="flex flex-col w-full">
       <TextArea :token-count="tokenCount" @text-changed="handleTextChanged" />
 
-      <div v-for="head in activation" :key="head" class="flex flex-row flex-wrap mt-2">
-        <Token
-          v-for="token in tokens"
-          :key="token.tokenId"
-          :token-id="token.tokenId"
-          :text="token.text"
-          :index="token.index"
-          :activation="head[activeToken][token.index]"
-          @hovered="handleHovered"
-        />
+      <div v-for="(head, index) in activation" :key="head" class="flex flex-col flex-wrap mt-2 ml-2 ring-1 p-2">
+        <p class="text-sm font-bold text-gray-500">{{ layer }}_{{ index }}</p>
+        <div class="flex flex-row">
+          <Token
+            v-for="token in tokens"
+            :key="token.tokenId"
+            :token-id="token.tokenId"
+            :text="token.text"
+            :index="token.index"
+            :activation="head[activeToken][token.index]"
+            @hovered="handleHovered"
+          />
+        </div>
       </div>
       
       <!-- <div class="flex flex-row flex-wrap mt-2">
@@ -39,6 +42,12 @@ export default {
     TextArea,
     Token
   },
+  props: {
+    layer: {
+      type: String,
+      default: 'transformer.h.0.attn.softmax.0'
+    }
+  },
   setup() {
     const { tokenizeText, getActivations } = useWebSockets();
     const { isOpen, data, send } = tokenizeText;
@@ -46,7 +55,7 @@ export default {
     const tokenCount = ref(0);
     const activation = ref([[]]);
     const activeToken = ref(0);
-    const layer = ref('model.layers.20.self_attn.softmax.0');
+    // const layer = ref('transformer.h.0.attn.softmax.0');
     return {
       tokenCount,
       isOpen,
@@ -56,7 +65,6 @@ export default {
       forward,
       activation,
       activeToken,
-      layer
     }
   },
   methods: {

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import List, Annotated
 
 torch.set_default_device("mps")
-model_name = "microsoft/phi-2"
+model_name = "openai-community/gpt2"
 tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", trust_remote_code=True)
 
