@@ -6,7 +6,7 @@ export default function useModel() {
   const { isOpen: tokenWebsocketIsOpen, data: tokenData, send: tokenSend } = baseSockets.tokenizeText;
   const { isOpen: inferenceWebsocketIsOpen, data: activations, send: forward } = baseSockets.getActivations;
   const tokenCount = ref(0);
-  const activation = ref([[]]);
+  const activation = ref([[[]]]);
   const text = ref('');
   const layer = ref('');
 
