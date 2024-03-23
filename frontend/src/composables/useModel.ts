@@ -7,6 +7,9 @@ export default function useModel() {
   const { isOpen: inferenceWebsocketIsOpen, data: activations, send: forward } = baseSockets.getActivations;
   const tokenCount = ref(0);
   const activation = ref([[[]]]);
+  const logits = ref([]);
+  const logitsTokens = ref([]);
+  const logitsIndices = ref([]);
   const text = ref('');
   const layer = ref('');
 
@@ -31,6 +34,9 @@ export default function useModel() {
     const parsedActivations = JSON.parse(newActivations);
     const capturedTargets = parsedActivations["captured_targets"][`${layer.value}.activ_norm`][0];
     activation.value = capturedTargets;
+    logits.value = parsedActivations["logits_values"];
+    logitsTokens.value = parsedActivations["logits_tokens"];
+    logitsIndices.value = parsedActivations["logits_indices"];
   });
 
   const tokens = computed(() => {
@@ -53,6 +59,9 @@ export default function useModel() {
     activation,
     text,
     layer,
+    logits,
+    logitsTokens,
+    logitsIndices,
     isModelReady,
   }
 
