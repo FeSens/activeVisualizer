@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from generate import generate
 from visualizer import visualize
 import torch
-from capture_functions import capture_layers_builder
+from capture_functions import capture_layers_builder, ablate_attn_activation_builder
 from pydantic import BaseModel
 from typing import List, Annotated
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +51,6 @@ async def model_endpoint(websocket: WebSocket):
         nonlocal latest_data
         while True:
             data = await websocket.receive_json()
-            print("setting latest data")
             latest_data = data
             try:
                 latest_data_semaphore.release()
@@ -64,20 +63,28 @@ async def model_endpoint(websocket: WebSocket):
             # sleep for 0.1 seconds to avoid busy waiting
             await sleep(0.1)
             await latest_data_semaphore.acquire()
-            print("Consuming latest data")
             data = latest_data  # Copy the latest data for processing
 
             text = data["text"]
             layer_name = [data["layer_name"]]
             top_k = data["top_k"]
+            positions_to_ablate = data.get("positions_to_ablate", [])
             inputs = tokenizer(text, return_tensors="pt",
                                return_attention_mask=False)
             captured_targets = {}
 
-            with visualize(model, capture_layers_builder(layer_name, captured_targets)):
+            ablate_fn = ablate_attn_activation_builder(
+                position=positions_to_ablate)
+            capture_fn = capture_layers_builder(layer_name, captured_targets)
+
+            def visualize_fn(name, tensor):
+                ablate_fn(name, tensor)
+                capture_fn(name, tensor)
+
+            with visualize(model, visualize_fn):
                 with torch.no_grad():
                     logits = model(
-                        **inputs, return_dict=False)[0].topk(top_k, dim=-1)
+                        **inputs, return_dict=False)[0].softmax(dim=-1).topk(top_k, dim=-1)
 
             logits_values = logits.values.squeeze(
                 dim=0).cpu().data.numpy().tolist()

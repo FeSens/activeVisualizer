@@ -1,5 +1,6 @@
 import torch
 from einops import rearrange
+import re
 
 
 def capture_layers_builder(layers_name: list, target_dict, capture_shape=False, capture_activation=True, capture_distribution=False, search_activation=False):
@@ -12,7 +13,19 @@ def capture_layers_builder(layers_name: list, target_dict, capture_shape=False, 
             _capture_distribution(name, tensor, target_dict, layers_name)
         if False:
             _search_activation(name, tensor, target_dict)
+        if True:
+            _capture_attn_heads_that_only_activate_in_0(
+                name, tensor, target_dict)
     return capture_layers
+
+
+def ablate_attn_activation_builder(position: list):
+    def ablate_attn_activation(name, tensor):
+        for (n_head, value, layers_name) in position:
+            _ablate_attn_activation(
+                name, tensor, n_head, value, layers_name)
+
+    return ablate_attn_activation
 
 
 def _search_activation(name, tensor, target_dict, top_k=5):
@@ -57,6 +70,16 @@ def _capture_shape(name, tensor, target_dict, layer_name='all'):
                 target_dict[f'{name}[{i}].shape'] = o.shape
 
 
+def _ablate_attn_activation(name, tensor, n_head, value=0, layer_name=''):
+    if name == layer_name:
+        # (B, H, T, T) = tensor.shape
+        # tensor[0][n_head, :, :] = value
+        # desired_distribution = tensor[0][n_head, :, :]
+        # tensor[0][n_head, :, :] = torch.distributions.Normal(
+        #     desired_distribution.mean(), desired_distribution.std()).sample(desired_distribution.shape)
+        tensor[0][n_head, :, :] = 0  # tensor[0][n_head, :, :].mean()
+
+
 def _capture_activation(name, tensor, target_dict, layer_name=[]):
     # Only capture if this if its shape is (B, H, T, T)
     # if len(tensor.shape) == 3:
@@ -92,3 +115,20 @@ def _capture_distribution(name, tensor: torch.Tensor, target_dict, layer_name=[]
             "hist": hist
         }
         target_dict[f"{name}.dist"] = dist
+
+
+def _capture_attn_heads_that_only_activate_in_0(name, tensor, target_dict, attention_regex="transformer.h.(\d+).attn.softmax.0"):
+    # if name matches the attention_regex
+    if not re.match(attention_regex, name):
+        return
+    # B, H, T, T = tensor.shape
+    t = tensor[0]  # H, T, T = t.shape
+    x = ((t.argmax(dim=2) == 0) * t[:, :, 0] > 0.9).all(dim=1)
+    indices = torch.nonzero(x)[:, 0]
+    target_dict[f'{name}.heads_that_only_activate_in_0'] = indices.cpu(
+    ).data.numpy().tolist()
+    if not 'to_ablate' in target_dict:
+        target_dict['to_ablate'] = ''
+
+    target_dict['to_ablate'] += " ".join([f"[{i}, 0.0, '{name}']," for i in indices.cpu(
+    ).data.numpy().tolist()])

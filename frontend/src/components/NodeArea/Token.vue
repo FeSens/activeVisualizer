@@ -1,6 +1,6 @@
 <template>
   <div :id="tokenId" :style="backgroundColorStyle" class="rounded mr-1 relative pt-2 min-w-7"
-    @mouseover="emitHoverEvent">
+    @mouseover="emitHoverEvent" @mouseup="emitClickEvent">
     <span class="token-index absolute top-0 left-1 text-xs" :data-token-id="tokenId">{{ index }}.</span>
     <span class="token pl-3 pr-1" :data-token-id="tokenId">{{ text.replace(" ", "_").replace('\n', '\\n') }}</span>
   </div>
@@ -8,7 +8,7 @@
 
 <script>
 export default {
-  emits: ['hovered'],
+  emits: ['hovered', 'clicked'],
   props: {
     tokenId: {
       type: Number,
@@ -33,6 +33,10 @@ export default {
       // Emit a custom event named 'hovered' when the mouse hovers over the component
       // You can pass any data as the second argument of $emit, such as the tokenId or text
       this.$emit('hovered', { tokenId: this.tokenId, text: this.text, index: this.index });
+    },
+    emitClickEvent() {
+      // Emit a custom event named 'clicked' when the component is clicked
+      this.$emit('clicked', { tokenId: this.tokenId, text: this.text, index: this.index });
     },
   },
   computed: {
