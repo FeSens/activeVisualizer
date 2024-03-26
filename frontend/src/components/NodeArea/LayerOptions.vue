@@ -12,16 +12,15 @@
         <div class="flex flex-row justify-between items-center">
           <button @click="handleAblate"
             class="text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900">
-            Ablate
+            {{ isHeadAblated() ? 'Unablate' : 'Ablate' }}
           </button>
-          <!-- input for the value no arrows jus keybord input -->
-          <input v-model="value" type="number" step=0.1 class="w-16 px-2 py-1 border border-gray-300 rounded-md">
+          <input v-if="!isHeadAblated()" v-model="value" type="number" step="0.1"
+            class="w-16 px-2 py-1 border border-gray-300 rounded-md">
         </div>
         <button @click="handleTraceCircuits"
           class="text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900">
           Trace Circuits
         </button>
-        <!-- Add more options as needed -->
       </div>
     </div>
   </div>
@@ -41,9 +40,7 @@ const props = defineProps({
   }
 });
 
-const attentionHeadsAblated = defineModel('attentionHeadsAblated')
-// const emit = defineEmits(['ablate', 'trace-circuits']);
-
+const attentionHeadsAblated = defineModel('attentionHeadsAblated');
 const showLayerOptions = ref(false);
 const value = ref(0);
 
@@ -51,17 +48,23 @@ const toggleLayerOptions = () => {
   showLayerOptions.value = !showLayerOptions.value;
 };
 
+const isHeadAblated = () => {
+  return attentionHeadsAblated.value.some(h => h[0] === props.index && h[2] === props.layer);
+};
+
 const handleAblate = () => {
-  attentionHeadsAblated.value.push([props.index, value.value, props.layer])
-  // emit('ablate', props.layer);
-  // Add your ablate logic here
+  const head = [props.index, value.value, props.layer];
+  const index = attentionHeadsAblated.value.findIndex(h => h[0] === props.index && h[2] === props.layer);
+  if (index !== -1) {
+    attentionHeadsAblated.value.splice(index, 1);
+  } else {
+    attentionHeadsAblated.value.push(head);
+  }
   showLayerOptions.value = false;
 };
 
 const handleTraceCircuits = () => {
   console.log('Trace Circuits option selected');
-  // emit('trace-circuits', props.layer);
-  // Add your trace circuits logic here
   showLayerOptions.value = false;
 };
 
